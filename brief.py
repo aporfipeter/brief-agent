@@ -103,7 +103,60 @@ def build_brief():
         "watch": results
     }
 
+def render_brief_md(brief: dict, max_news_per_ticker: int = 3, top_n: int = 5) -> str:
+    lines = []
+    lines.append(f"## Morning Stock Brief")
+    lines.append(f"_Generated: {brief['generated_at']}_")
+    lines.append("")
+
+    watch = brief.get("watch", [])
+    if not watch:
+        return "\n".join(lines + ["(No watchlist items.)"])
+
+    # Top movers
+    top = watch[:top_n]
+    lines.append("### Top movers")
+    for s in top:
+        p = s["price"]
+        pct = p["pct_change_1d"]
+        close = p["close"]
+        sig = ", ".join(s.get("signals", [])) or "—"
+        lines.append(f"- **{s['ticker']}**: {pct:+.2f}% (close {close}) — _{sig}_")
+    lines.append("")
+
+    # Detail per ticker
+    lines.append("### Details")
+    for s in watch:
+        p = s["price"]
+        pct = p["pct_change_1d"]
+        close = p["close"]
+        date = p["date"]
+        sigs = s.get("signals", [])
+        sig = ", ".join(sigs) if sigs else "—"
+
+        lines.append(f"**{s['ticker']}** — {pct:+.2f}% (close {close}, {date})")
+        lines.append(f"- Signals: {sig}")
+
+        news = s.get("news", [])
+        if news:
+            lines.append("- Headlines:")
+            for item in news[:max_news_per_ticker]:
+                title = item.get("title") or "(no title)"
+                link = item.get("link")
+                if link:
+                    lines.append(f"  - [{title}]({link})")
+                else:
+                    lines.append(f"  - {title}")
+        else:
+            lines.append("- Headlines: (none)")
+
+        lines.append("")  # blank line between tickers
+
+    return "\n".join(lines)
+
 
 if __name__ == "__main__":
     brief = build_brief()
     print(json.dumps(brief, indent=2))
+    print("\n" + "=" * 60 + "\n")
+    print(render_brief_md(brief))
