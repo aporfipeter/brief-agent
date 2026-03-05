@@ -52,6 +52,27 @@ def fetch_google_news_rss(query: str, limit: int = 4):
 def load_watchlist():
     with open("watchlist.json", "r") as f:
         return json.load(f)["watchlist"]
+    
+def enrich_with_signals(stock):
+    pct = stock["price"]["pct_change_1d"]
+    news_count = len(stock["news"])
+
+    signals = []
+
+    # Volatility threshold
+    if abs(pct) >= 3:
+        signals.append("HIGH_VOLATILITY")
+    elif abs(pct) >= 1.5:
+        signals.append("MODERATE_MOVE")
+
+    # News intensity
+    if news_count >= 6:
+        signals.append("HEAVY_NEWS_FLOW")
+    elif news_count == 0:
+        signals.append("NO_NEWS")
+
+    stock["signals"] = signals
+    return stock
 
 
 def build_brief():
@@ -66,11 +87,13 @@ def build_brief():
         price = fetch_stooq_daily_close(ticker)
         news = fetch_google_news_rss(hint or ticker)
 
-        results.append({
+        stock = {
             "ticker": ticker,
             "price": price,
             "news": news
-        })
+        }
+        stock = enrich_with_signals(stock)
+        results.append(stock)
 
     # sort by biggest absolute move
     results.sort(key=lambda x: abs(x["price"]["pct_change_1d"]), reverse=True)
