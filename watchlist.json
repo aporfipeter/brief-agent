@@ -1,0 +1,16 @@
+{
+    "watchlist": [
+        {
+            "ticker": "aapl.us",
+            "news_hint": "Apple stock"
+        },
+        {
+            "ticker": "nvda.us",
+            "news_hint": "NVIDIA stock"
+        },
+        {
+            "ticker": "msft.us",
+            "news_hint": "Microsoft stock"
+        }
+    ]
+}
