@@ -1,4 +1,5 @@
 import json
+import html
 import urllib.parse
 from datetime import datetime, timezone
 
@@ -151,6 +152,57 @@ def render_brief_md(brief: dict, max_news_per_ticker: int = 3, top_n: int = 5) -
             lines.append("- Headlines: (none)")
 
         lines.append("")  # blank line between tickers
+
+    return "\n".join(lines)
+
+def render_brief_html(brief: dict, max_news_per_ticker: int = 3, top_n: int = 5) -> str:
+    esc = html.escape
+    lines = []
+
+    lines.append(f"<b>Morning Stock Brief</b>")
+    lines.append(f"<i>Generated: {esc(brief['generated_at'])}</i>")
+    lines.append("")
+
+    watch = brief.get("watch", [])
+    if not watch:
+        return "\n".join(lines + ["(No watchlist items.)"])
+
+    top = watch[:top_n]
+    lines.append("<b>Top movers</b>")
+    for s in top:
+        p = s["price"]
+        pct = p["pct_change_1d"]
+        close = p["close"]
+        sig = ", ".join(s.get("signals", [])) or "—"
+        lines.append(f"• <b>{esc(s['ticker'])}</b>: {pct:+.2f}% (close {close}) — <i>{esc(sig)}</i>")
+    lines.append("")
+
+    lines.append("<b>Details</b>")
+    for s in watch:
+        p = s["price"]
+        pct = p["pct_change_1d"]
+        close = p["close"]
+        date = p["date"]
+        sigs = s.get("signals", [])
+        sig = ", ".join(sigs) if sigs else "—"
+
+        lines.append(f"<b>{esc(s['ticker'])}</b> — {pct:+.2f}% (close {close}, {esc(date)})")
+        lines.append(f"Signals: <i>{esc(sig)}</i>")
+
+        news = s.get("news", [])
+        if news:
+            lines.append("Headlines:")
+            for item in news[:max_news_per_ticker]:
+                title = esc(item.get("title") or "(no title)")
+                link = item.get("link")
+                if link:
+                    lines.append(f'• <a href="{esc(link)}">{title}</a>')
+                else:
+                    lines.append(f"• {title}")
+        else:
+            lines.append("Headlines: (none)")
+
+        lines.append("")  # spacer
 
     return "\n".join(lines)
 

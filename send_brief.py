@@ -1,10 +1,10 @@
-from brief import build_brief, render_brief_md
+from brief import build_brief, render_brief_html
 from services.telegram import send_message
 
 
 def main():
     brief = build_brief()
-    message = render_brief_md(brief)
+    message = render_brief_html(brief)
 
     send_message(message)
 
