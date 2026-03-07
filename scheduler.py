@@ -24,7 +24,7 @@ def main():
 
     scheduler.add_job(
         run_brief,
-        trigger=CronTrigger(hour=21, minute=15, timezone=timezone),
+        trigger=CronTrigger(hour=6, minute=0, timezone=timezone),
         id="daily_stock_brief",
         replace_existing=True,
         max_instances=1,
