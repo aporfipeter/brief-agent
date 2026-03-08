@@ -1,11 +1,13 @@
 import json
 import html
+import logging
 import urllib.parse
 from datetime import datetime, timezone
 
 import feedparser
 import requests
 
+logger = logging.getLogger(__name__)
 
 def fetch_stooq_daily_close(ticker: str):
     url = f"https://stooq.com/q/d/l/?s={ticker}&i=d"
@@ -51,8 +53,12 @@ def fetch_google_news_rss(query: str, limit: int = 4):
 
 
 def load_watchlist():
-    with open("watchlist.json", "r") as f:
-        return json.load(f)["watchlist"]
+    try:
+        with open("watchlist.json") as f:
+            return json.load(f)["watchlist"]
+    except Exception:
+        logger.exception("Failed to load watchlist")
+        return []
     
 def enrich_with_signals(stock):
     pct = stock["price"]["pct_change_1d"]
