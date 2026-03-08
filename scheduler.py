@@ -9,7 +9,6 @@ from apscheduler.triggers.cron import CronTrigger
 
 from send_brief import run_brief
 
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -18,12 +17,21 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def safe_run_brief():
+    logger.info("Scheduled job triggered")
+    try:
+        run_brief()
+        logger.info("Scheduled job completed successfully")
+    except Exception:
+        logger.exception("Scheduled job failed")
+
+
 def main():
     timezone = ZoneInfo("Europe/Budapest")
     scheduler = BackgroundScheduler(timezone=timezone)
 
     scheduler.add_job(
-        run_brief,
+        safe_run_brief,
         trigger=CronTrigger(hour=6, minute=0, timezone=timezone),
         id="daily_stock_brief",
         replace_existing=True,
@@ -32,7 +40,10 @@ def main():
     )
 
     scheduler.start()
+
+    job = scheduler.get_job("daily_stock_brief")
     logger.info("Scheduler started. Daily brief set for 06:00 Europe/Budapest.")
+    logger.info("Next run time: %s", job.next_run_time)
 
     def shutdown(signum, frame):
         logger.info("Shutting down scheduler...")
