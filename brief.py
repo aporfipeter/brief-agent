@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 import feedparser
 import requests
 
+from news_cluster import cluster_headlines
+
 logger = logging.getLogger(__name__)
 
 def fetch_stooq_daily_close(ticker: str):
@@ -36,19 +38,29 @@ def fetch_stooq_daily_close(ticker: str):
     }
 
 
-def fetch_google_news_rss(query: str, limit: int = 4):
-    q = urllib.parse.quote(query)
-    url = f"https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en"
-    feed = feedparser.parse(url)
+def fetch_google_news_rss(query: str, limit: int = 8):
+
+    encoded_query = urllib.parse.quote(query)
+
+    url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+    response = requests.get(url, headers=headers, timeout=10)
+
+    feed = feedparser.parse(response.text)
 
     items = []
-    for e in feed.entries[:limit]:
+
+    for entry in feed.entries[:limit]:
         items.append(
             {
-                "title": e.get("title"),
-                "link": e.get("link"),
+                "title": entry.get("title"),
+                "link": entry.get("link"),
+                "published": entry.get("published")
             }
         )
+
     return items
 
 
@@ -92,7 +104,19 @@ def build_brief():
         hint = item.get("news_hint")
 
         price = fetch_stooq_daily_close(ticker)
-        news = fetch_google_news_rss(hint or ticker)
+        
+        query = f"{hint} when:1d" if hint else ticker.replace(".us", "")
+        news = fetch_google_news_rss(query)
+        clusters = cluster_headlines(news)
+
+        news = [
+            {
+                "representative": cluster[0],
+                "cluster_size": len(cluster),
+                "items": cluster
+            }
+            for cluster in clusters
+        ]
 
         stock = {
             "ticker": ticker,
@@ -147,13 +171,17 @@ def render_brief_md(brief: dict, max_news_per_ticker: int = 3, top_n: int = 5) -
         news = s.get("news", [])
         if news:
             lines.append("- Headlines:")
-            for item in news[:max_news_per_ticker]:
-                title = item.get("title") or "(no title)"
-                link = item.get("link")
-                if link:
-                    lines.append(f"  - [{title}]({link})")
+            for cluster in news[:max_news_per_ticker]:
+                rep = cluster["representative"]
+                size = cluster["cluster_size"]
+
+                title = rep["title"]
+                link = rep["link"]
+
+                if size > 1:
+                    lines.append(f'• <a href="{link}">{title}</a> ({size} sources)')
                 else:
-                    lines.append(f"  - {title}")
+                    lines.append(f'• <a href="{link}">{title}</a>')
         else:
             lines.append("- Headlines: (none)")
 
@@ -198,13 +226,17 @@ def render_brief_html(brief: dict, max_news_per_ticker: int = 3, top_n: int = 5)
         news = s.get("news", [])
         if news:
             lines.append("Headlines:")
-            for item in news[:max_news_per_ticker]:
-                title = esc(item.get("title") or "(no title)")
-                link = item.get("link")
-                if link:
-                    lines.append(f'• <a href="{esc(link)}">{title}</a>')
+            for cluster in news[:max_news_per_ticker]:
+                rep = cluster["representative"]
+                size = cluster["cluster_size"]
+
+                title = rep["title"]
+                link = rep["link"]
+
+                if size > 1:
+                    lines.append(f'• <a href="{link}">{title}</a> ({size} sources)')
                 else:
-                    lines.append(f"• {title}")
+                    lines.append(f'• <a href="{link}">{title}</a>')
         else:
             lines.append("Headlines: (none)")
 
